@@ -675,8 +675,8 @@
    "label": "자동 갱신 (GitHub Actions)",
    "fx": {
     "USD": 1.0,
-    "KRW": 1380.0,
-    "HKD": 7.8376
+    "KRW": 1382.0,
+    "HKD": 7.83794
    },
    "bench": {
     "SPY": 765.91,
