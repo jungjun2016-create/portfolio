@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
 import os,sys
+from datetime import datetime,timezone,timedelta
+BUILT=datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d %H:%M KST')
 R=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 S=json.load(open(os.path.join(R,'data','state.json'),encoding='utf-8'))
 M,H,SN=S['meta'],S['holdings'],S['snapshots']
@@ -86,6 +88,7 @@ HTML=f"""<!doctype html>
   <div class="eyebrow">Tracking Report · Model V3 · Snapshot {nsnap}</div>
   <h1>글로벌 기술적 스크리닝 모의 포트폴리오</h1>
   <div class="meta">기준 <b>{cur['date']} KST</b> (전 시장 직전 종가) · V3 개시 {M['inception']} · 초기자본 <b>$100,000</b> · 30종목 동일가중 (포지션당 $3,333.33)</div>
+  <div class="meta">마지막 갱신 <b>{BUILT}</b> · 자동 갱신 평일 07:30 / 17:30 KST (GitHub Actions, 최대 1시간 지연 가능)</div>
   <div class="meta">유니버스 — 나스닥 시총 Top 300 · 한국 시총 Top 100 · 홍콩 시총 Top 300</div>
   <div class="notice">{cur.get('label','')} · <b>종목 행을 클릭하면</b> 재무제표·밸류·배당·기술지표·최근 이슈가 담긴 상세 패널이 열립니다.</div>
  </header>
@@ -114,7 +117,7 @@ HTML=f"""<!doctype html>
   <li><b>스냅샷 누적</b> — 갱신할 때마다 추이 차트와 스파크라인이 길어집니다. 현재 {nsnap}개.</li>
  </ul></div></section>
  {rb}
- <footer><span>모의 포트폴리오 · 실제 매매 아님</span><span>데이터: Yahoo Finance · stockanalysis.com · 웹 검색</span><span>기준통화 USD</span><span>Model V3 · {cur['date']}</span></footer>
+ <footer><span>모의 포트폴리오 · 실제 매매 아님</span><span>데이터: TradingView · stockanalysis.com · 웹 검색</span><span>기준통화 USD</span><span>Model V3 · 빌드 {BUILT}</span></footer>
 </div>
 <div id="scrim"></div>
 <aside id="dw" role="dialog" aria-modal="true" aria-labelledby="dwName" hidden>
