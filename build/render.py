@@ -79,7 +79,7 @@ HTML=f"""<!doctype html>
 <html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>글로벌 스크리닝 30</title>
+<title>글로벌 스크리닝 {NH}</title>
 <meta name="description" content="글로벌 기술적 스크리닝 모의 포트폴리오 — 나스닥·한국·홍콩 {NH}종목 트래킹">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E📈%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
