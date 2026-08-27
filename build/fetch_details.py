@@ -75,7 +75,7 @@ def tv_fetch(mkt, tickers):
 
 # ── stockanalysis ──────────────────────────────────────────────────────────
 SA_EXC = {'kr:005935': 'krx/005930', 'hk:2359': 'sha/603259', 'hk:2899': 'sha/601899',
-          'hk:2099': 'tsx/CGG', 'hk:939': 'hkg/0939'}
+          'hk:2099': 'tsx/CGG', 'hk:939': 'hkg/0939', 'hk:914': 'sha/600585'}
 
 
 def sa_base(h):
@@ -203,7 +203,8 @@ def main():
     force = '--all' in sys.argv
 
     todo = [h for h in H if (only and h['key'] in only) or
-            (not only and (force or not DET.get(h['key'], {}).get('f')))]
+            (not only and (force or not (DET.get(h['key'], {}).get('f')
+                                         and DET.get(h['key'], {}).get('annual'))))]
     print(f'대상 {len(todo)}종목')
     if not todo:
         return
