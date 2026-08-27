@@ -2,10 +2,15 @@ name: 포트폴리오 갱신
 
 on:
   schedule:
-    # UTC 기준. 07:30 KST(월~금) = 22:30 UTC(일~목) — 미국 장 마감 후, 아시아 장 시작 전
-    - cron: '30 22 * * 0-4'
-    # 17:30 KST(월~금) = 08:30 UTC — 한국·홍콩 장 마감 후
-    - cron: '30 8 * * 1-5'
+    # ── 아침 회차: 미국 마감 후 (KST 07:30). GitHub 크론은 자주 지연·누락되므로
+    #    08:30 / 09:30 KST 예비 회차를 둔다. 이미 갱신됐으면 아래 guard가 건너뛴다.
+    - cron: '30 22 * * 0-4'   # KST 월~금 07:30
+    - cron: '30 23 * * 0-4'   # KST 월~금 08:30 (예비)
+    - cron: '30 0 * * 1-5'    # KST 월~금 09:30 (예비)
+    # ── 저녁 회차: 한국·홍콩 마감 후 (KST 17:30) + 예비 2회
+    - cron: '30 8 * * 1-5'    # KST 월~금 17:30
+    - cron: '30 9 * * 1-5'    # KST 월~금 18:30 (예비)
+    - cron: '30 10 * * 1-5'   # KST 월~금 19:30 (예비)
   workflow_dispatch:
     inputs:
       weekly:
@@ -26,11 +31,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 중복 실행 판정
+        id: guard
+        env:
+          EV: ${{ github.event_name }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, sys
+          from datetime import datetime, timezone, timedelta
+          KST = timezone(timedelta(hours=9))
+          u = json.load(open('data/state.json'))['meta'].get('updated_at')
+          skip = False
+          if os.environ.get('EV') == 'schedule' and u:
+              age = (datetime.now(KST) - datetime.fromisoformat(u)).total_seconds() / 3600
+              skip = age < 3          # 3시간 안에 이미 갱신됐으면 예비 회차는 건너뛴다
+              print(f'마지막 갱신 {u} — {age:.1f}시간 전, skip={skip}', file=sys.stderr)
+          print('skip=' + ('true' if skip else 'false'))
+          PY
+
       - uses: actions/setup-python@v5
+        if: steps.guard.outputs.skip != 'true'
         with:
           python-version: '3.12'
 
       - name: 시세 수집
+        if: steps.guard.outputs.skip != 'true'
         run: |
           if [ "${{ github.event.inputs.weekly }}" = "true" ] || [ "$(TZ=Asia/Seoul date +%u)" = "1" ]; then
             python3 build/fetch_prices.py --weekly
@@ -39,9 +64,11 @@ jobs:
           fi
 
       - name: 페이지 빌드
+        if: steps.guard.outputs.skip != 'true'
         run: python3 build/render.py
 
       - name: 커밋
+        if: steps.guard.outputs.skip != 'true'
         run: |
           git config user.name  "portfolio-bot"
           git config user.email "portfolio-bot@users.noreply.github.com"
