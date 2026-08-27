@@ -202,6 +202,7 @@ def main():
             time.sleep(0.6)
         print(f'주봉 갱신 {ok}/{len(H)}')
 
+    M['updated_at'] = datetime.now(KST).isoformat(timespec='seconds')
     json.dump(S, open(STATE, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     base = M['base_capital']
     tot = sum(p * h['shares'] / fx[h['ccy']] for p, h in zip(prices, H))
