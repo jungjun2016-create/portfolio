@@ -180,7 +180,9 @@ def main():
             raise SystemExit(f"이상치 감지 {h['tk']}: {q} → {p}. 저장 중단.")
 
     today = datetime.now(KST).strftime('%Y-%m-%d')
-    snap = {'date': today, 'label': '자동 갱신 (GitHub Actions)', 'fx': fx, 'bench': bench, 'prices': prices}
+    tv = sum(p * h['shares'] / fx[h['ccy']] for p, h in zip(prices, H))   # 그 시점의 실제 평가액 — 이력 왜곡 방지
+    snap = {'date': today, 'label': '자동 갱신 (GitHub Actions)', 'fx': fx, 'bench': bench,
+            'prices': prices, 'tv': round(tv, 2)}
     if S['snapshots'][-1]['date'] == today:
         keep = {k: S['snapshots'][-1][k] for k in ('rebalance', 'rebalance_title') if k in S['snapshots'][-1]}
         S['snapshots'][-1] = {**snap, **keep}
@@ -205,8 +207,7 @@ def main():
     M['updated_at'] = datetime.now(KST).isoformat(timespec='seconds')
     json.dump(S, open(STATE, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     base = M['base_capital']
-    tot = sum(p * h['shares'] / fx[h['ccy']] for p, h in zip(prices, H))
-    print(f"스냅샷 {act}: {today} (총 {len(S['snapshots'])}개)  평가액 ${tot:,.2f}  누적 {tot/base-1:+.2%}")
+    print(f"스냅샷 {act}: {today} (총 {len(S['snapshots'])}개)  평가액 ${tv:,.2f}  누적 {tv/base-1:+.2%}")
 
 
 if __name__ == '__main__':

@@ -6,11 +6,14 @@ BUILT=datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d %H:%M KST')
 R=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 S=json.load(open(os.path.join(R,'data','state.json'),encoding='utf-8'))
 M,H,SN=S['meta'],S['holdings'],S['snapshots']
-DET=S.get('details',{});BASE=M['base_capital']
+DET=S.get('details',{});BASE=M['base_capital'];NH=len(H)
 B=os.path.join(R,'build')
 CSS=open(os.path.join(B,'css.txt'),encoding='utf-8').read();JS=open(os.path.join(B,'app.js'),encoding='utf-8').read()
 
-def val_at(s): return sum(s['prices'][i]*h['shares']/s['fx'][h['ccy']] for i,h in enumerate(H))
+def val_at(s):
+    # 스냅샷 시점의 실제 평가액(tv)이 있으면 그것을 쓴다. 종목 수·수량이 바뀌어도 과거 이력이 왜곡되지 않는다.
+    if s.get('tv'): return s['tv']
+    return sum((s['prices'][i] or 0)*h['shares']/s['fx'][h['ccy']] for i,h in enumerate(H))
 def bm_at(s):
     b0=M['bench_base'];v=sum(s['bench'][k]/b0[k]-1 for k in b0)/3
     return 0.0 if abs(v)<5e-9 else v
@@ -25,8 +28,8 @@ for i,h in enumerate(H):
     px=cur['prices'][i];fx=cur['fx'][h['ccy']]
     cost=h['entry']*h['shares']/M['fx_base'][h['ccy']];v=px*h['shares']/fx
     rows.append(dict(h,cur=px,loc=px/h['entry']-1,usd=v/cost-1,val=v,cost=cost,
-                     d=(px/prv['prices'][i]-1) if prv else None,
-                     hist=[s['prices'][i] for s in SN]))
+                     d=(px/prv['prices'][i]-1) if (prv and i<len(prv['prices']) and prv['prices'][i]) else None,
+                     hist=[s['prices'][i] for s in SN if i<len(s['prices']) and s['prices'][i] is not None]))
 
 def money(v,c): return "{:,.0f}".format(v) if c=='KRW' else "{:,.2f}".format(v)
 def pct(v,dp=2):
@@ -60,7 +63,7 @@ for i,r in enumerate(rows,1):
       f'<td class="n gold">+{r["prem"]:.1f}</td><td class="n tot">{r["tot"]:.1f}</td></tr>')
 
 RB=cur.get('rebalance') or []
-rb=('<section><h2>5. 이번 리밸런싱</h2><div class="note"><h3>'+cur.get('rebalance_title','교체 내역')+'</h3><ul>'
+rb=('<section><h2>5. '+cur.get('rebalance_title','이번 리밸런싱')+'</h2><div class="note"><ul>'
     +''.join(f'<li>{x}</li>' for x in RB)+'</ul></div></section>') if RB else ''
 
 DATA=json.dumps({"series":series,"base":BASE,"detailUpdated":M.get('detail_updated',cur['date']),
@@ -77,7 +80,7 @@ HTML=f"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>글로벌 스크리닝 30</title>
-<meta name="description" content="글로벌 기술적 스크리닝 모의 포트폴리오 — 나스닥·한국·홍콩 30종목 트래킹">
+<meta name="description" content="글로벌 기술적 스크리닝 모의 포트폴리오 — 나스닥·한국·홍콩 {NH}종목 트래킹">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E📈%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
@@ -87,7 +90,7 @@ HTML=f"""<!doctype html>
  <header class="head">
   <div class="eyebrow">Tracking Report · Model V3 · Snapshot {nsnap}</div>
   <h1>글로벌 기술적 스크리닝 모의 포트폴리오</h1>
-  <div class="meta">기준 <b>{cur['date']} KST</b> (전 시장 직전 종가) · V3 개시 {M['inception']} · 초기자본 <b>$100,000</b> · 30종목 동일가중 (포지션당 $3,333.33)</div>
+  <div class="meta">기준 <b>{cur['date']} KST</b> (전 시장 직전 종가) · V3 개시 {M['inception']} · 초기자본 <b>$100,000</b> · {NH}종목 동일가중 (포지션당 ${BASE/NH:,.2f})</div>
   <div class="meta">마지막 갱신 <b>{BUILT}</b> · 자동 갱신 평일 07:30 / 17:30 KST (GitHub Actions, 최대 1시간 지연 가능)</div>
   <div class="meta">유니버스 — 나스닥 시총 Top 300 · 한국 시총 Top 100 · 홍콩 시총 Top 300</div>
   <div class="notice">{cur.get('label','')} · <b>종목 행을 클릭하면</b> 재무제표·밸류·배당·기술지표·최근 이슈가 담긴 상세 패널이 열립니다.</div>
@@ -97,8 +100,8 @@ HTML=f"""<!doctype html>
   <div class="kpi"><div class="k">누적 수익률</div><div class="v">{pct(cum)}</div><div class="s">V3 개시 대비 (USD, 환효과 포함)</div></div>
   <div class="kpi"><div class="k">직전 갱신 대비</div><div class="v">{dcard}</div><div class="s">{dsub}</div></div>
   <div class="kpi"><div class="k">합성 벤치마크 대비</div><div class="v">{pct(cum-bmc)}</div><div class="s">BM {bmc*100:+.2f}% (SPY·KOSPI·HSI 균등)</div></div>
-  <div class="kpi"><div class="k">배수 검증</div><div class="v">{30-sum(h['flag'] for h in H)} / 30</div><div class="s">2개 소스 일치 · {sum(h['flag'] for h in H)}종목 편차 표시</div></div>
-  <div class="kpi"><div class="k">수집된 이슈</div><div class="v">{nnews}</div><div class="s">30종목 뉴스·실적·리포트</div></div>
+  <div class="kpi"><div class="k">배수 검증</div><div class="v">{NH-sum(h['flag'] for h in H)} / {NH}</div><div class="s">2개 소스 일치 · {sum(h['flag'] for h in H)}종목 편차 표시</div></div>
+  <div class="kpi"><div class="k">수집된 이슈</div><div class="v">{nnews}</div><div class="s">{NH}종목 뉴스·실적·리포트</div></div>
  </section>
  <section><h2>1. 누적 추이</h2>
   <div class="chartbox"><div class="legend"><span><i style="background:var(--s1)"></i>포트폴리오</span><span><i style="background:var(--s2)"></i>합성 벤치마크</span></div><div id="chart"></div></div>
