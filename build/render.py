@@ -26,10 +26,11 @@ bmc=bm_at(cur);dchg=(series[-1]['v']/series[-2]['v']-1) if prv else None
 rows=[]
 for i,h in enumerate(H):
     px=cur['prices'][i];fx=cur['fx'][h['ccy']]
-    cost=h['entry']*h['shares']/M['fx_base'][h['ccy']];v=px*h['shares']/fx
+    fxb=h.get('fx_entry') or M['fx_base'][h['ccy']]   # 교체 편입 종목은 편입 시점 환율로 원가를 잡는다
+    cost=h['entry']*h['shares']/fxb;v=px*h['shares']/fx
     rows.append(dict(h,cur=px,loc=px/h['entry']-1,usd=v/cost-1,val=v,cost=cost,
                      d=(px/prv['prices'][i]-1) if (prv and i<len(prv['prices']) and prv['prices'][i]) else None,
-                     hist=[s['prices'][i] for s in SN if i<len(s['prices']) and s['prices'][i] is not None]))
+                     hist=[s['prices'][i] for s in SN[h.get('since',0):] if i<len(s['prices']) and s['prices'][i] is not None]))
 
 def money(v,c): return "{:,.0f}".format(v) if c=='KRW' else "{:,.2f}".format(v)
 def pct(v,dp=2):
@@ -63,7 +64,7 @@ for i,r in enumerate(rows,1):
       f'<td class="n gold">+{r["prem"]:.1f}</td><td class="n tot">{r["tot"]:.1f}</td></tr>')
 
 RB=cur.get('rebalance') or []
-rb=('<section><h2>5. '+cur.get('rebalance_title','이번 리밸런싱')+'</h2><div class="note"><ul>'
+rb=('<section><h2>5. '+cur.get('rebalance_title','이번 리배런싱')+'</h2><div class="note"><ul>'
     +''.join(f'<li>{x}</li>' for x in RB)+'</ul></div></section>') if RB else ''
 
 DATA=json.dumps({"series":series,"base":BASE,"detailUpdated":M.get('detail_updated',cur['date']),
@@ -92,7 +93,7 @@ HTML=f"""<!doctype html>
   <h1>글로벌 기술적 스크리닝 모의 포트폴리오</h1>
   <div class="meta">기준 <b>{cur['date']} KST</b> (전 시장 직전 종가) · V3 개시 {M['inception']} · 초기자본 <b>$100,000</b> · {NH}종목 동일가중 (포지션당 ${BASE/NH:,.2f})</div>
   <div class="meta">마지막 갱신 <b>{BUILT}</b> · 자동 갱신 평일 07:30 / 17:30 KST (GitHub Actions, 최대 1시간 지연 가능)</div>
-  <div class="meta">유니버스 — 나스닥 시총 Top 300 · 한국 시총 Top 100 · 홍콩 시총 Top 300</div>
+  <div class="meta">유니버스 — 나스닥 시총 Top 300 · 한국 시총 Top 100 · 홍콩 시총 Top 300 · 마지막 리밸런싱 <b>{M.get('last_rebalance','—')}</b></div>
   <div class="notice">{cur.get('label','')} · <b>종목 행을 클릭하면</b> 재무제표·밸류·배당·기술지표·최근 이슈가 담긴 상세 패널이 열립니다.</div>
  </header>
  <section class="kpis">
@@ -109,14 +110,14 @@ HTML=f"""<!doctype html>
  <section><h2>2. 시장별 성과</h2>
   <div class="scroll"><table><thead><tr><th>시장</th><th class="n">평가액(USD)</th><th class="n">누적</th><th>벤치마크</th><th class="n">BM 수익률</th><th class="n">초과</th></tr></thead><tbody>{mrows}</tbody></table></div>
  </section>
- <section><h2>3. 보유 종목 30 (행 클릭 → 상세)</h2>
+ <section><h2>3. 보유 종목 {NH} (행 클릭 → 상세)</h2>
   <div class="scroll"><table><thead><tr><th>시장</th><th>티커</th><th>종목명</th><th class="n">시가총액</th><th class="n">PER</th><th class="n">FW PER</th><th class="n">진입가</th><th class="n">현재가</th><th class="n">직전 대비</th><th class="n">현지 누적</th><th class="n">USD 누적</th><th>추이</th><th class="n">차트</th><th class="n">밸류·성장</th><th class="n">총점</th></tr></thead><tbody>{hrows}</tbody></table></div>
   <div class="cap">시가총액은 USD 환산 · 진입가/현재가는 현지통화 · 배수는 TradingView와 stockanalysis.com 2개 소스 교차검증 후 보수적(높은) 값 채택 · <span class="fl">&#9873;</span>는 편차 25% 이상 · 환율 USDKRW {cur['fx']['KRW']:,.2f} / USDHKD {cur['fx']['HKD']:,.4f}</div>
  </section>
  <section><h2>4. 운영 규칙</h2><div class="note"><ul>
-  <li><b>월요일</b> — 전체 점검 및 리밸런싱. 차트가 훼손된 종목을 <b>최대 9종목</b>까지 교체하고 하단에 사유를 기재합니다.</li>
+  <li><b>월요일 아침 — 자동 리밸런싱</b>. 주봉 기준 40주선 이탈·52주 고점 대비 낙폭·12주 모멘텀을 점수화해 차트가 훼손된 종목을 판정하고, 유니버스 상위 후보로 <b>국가당 최대 10종목</b>까지 교체합니다. 훼손 종목이 없거나 조건을 넘는 후보가 없으면 <b>교체하지 않습니다</b>. 교체가 일어난 주에만 하단에 사유가 표시됩니다.</li>
   <li><b>주중·주말 수시</b> — "수익률 체크" 한마디로 최신 종가를 반영해 같은 링크에 갱신합니다.</li>
-  <li><b>재무·이슈</b> — 재무제표와 뉴스는 월요일 주 1회 갱신합니다. 시세는 매 갱신마다 최신입니다.</li>
+  <li><b>재무·이슈</b> — 재무제표와 뉴스는 <b>상세 데이터 수집</b> 워크플로를 수동 실행할 때 갱신됩니다(마지막 {M.get('detail_updated','—')}). 시세와 차트 점수는 매 갱신마다 최신입니다.</li>
   <li><b>스냅샷 누적</b> — 갱신할 때마다 추이 차트와 스파크라인이 길어집니다. 현재 {nsnap}개.</li>
  </ul></div></section>
  {rb}
