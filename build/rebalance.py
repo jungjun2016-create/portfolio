@@ -257,7 +257,7 @@ def main():
 
         new = {
             'mkt': mkt, 'tk': c['code'], 'nm': nm, 'ccy': ccy,
-            'mc_usd': round((c['info'].get('mcap') or 0) / 1e9, 1),
+            'mc_usd': round((c['info'].get('mcap') or 0) / fx[ccy] / 1e9, 1),  # 현지통화 시총 → USD 환산
             'pe': c['info'].get('pe'), 'fpe': c['info'].get('fpe'),
             'chart': c['score'], 'prem': prem_score(c['info']),
             'tot': 0.0,
