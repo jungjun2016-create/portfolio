@@ -17,6 +17,10 @@ on:
         description: '주봉 차트 데이터도 갱신'
         type: boolean
         default: false
+      rebalance:
+        description: '리밸런싱을 지금 강제 실행 (요일 무관)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -61,6 +65,18 @@ jobs:
             python3 build/fetch_prices.py --weekly
           else
             python3 build/fetch_prices.py
+          fi
+
+      # 월요일 아침 회차에서만 리밸런싱을 돌린다. 훼손 종목이 없으면 스스로 아무것도 바꾸지 않는다.
+      - name: 자동 리밸런싱
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          if [ "${{ github.event.inputs.rebalance }}" = "true" ]; then
+            python3 build/rebalance.py --force
+          elif [ "$(TZ=Asia/Seoul date +%u)" = "1" ] && [ "$(TZ=Asia/Seoul date +%H)" -lt 12 ]; then
+            python3 build/rebalance.py
+          else
+            echo "리밸런싱 회차 아님 (월요일 오전 회차에서만 실행)"
           fi
 
       - name: 페이지 빌드
